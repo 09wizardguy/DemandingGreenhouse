@@ -3,20 +3,27 @@ package com.o9wizardguy.mixin;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.SaplingBlock;
+import net.minecraft.block.sapling.SaplingGenerator;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.registry.tag.TagKey;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.state.property.IntProperty;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(value = SaplingBlock.class, priority = 2000)
+
+@Mixin(value = SaplingBlock.class, priority = 900)
 public abstract class SaplingBlockMixin {
 
+    @Shadow @Final public static IntProperty STAGE;
+    @Shadow @Final private SaplingGenerator generator;
     @Unique
     private static final TagKey<Block> GREENHOUSE_BLOCKS =
             TagKey.of(RegistryKeys.BLOCK, new Identifier("demandinggreenhouses", "greenhouse_blocks"));
@@ -31,12 +38,12 @@ public abstract class SaplingBlockMixin {
                 BlockState checkState = world.getBlockState(checkPos);
 
                 if (checkState.isIn(GREENHOUSE_BLOCKS)) {
-                    // Force sapling growth even though the sky is blocked
-                    SaplingBlock sapling = (SaplingBlock)(Object)this;
-                    if (world.isAir(pos.up()) && sapling.canGrow(world, random, pos, state)) {
-                        sapling.grow(world, random, pos, state);
-                        ci.cancel();
+                    if ((Integer)state.get(STAGE) == 0) {
+                        world.setBlockState(pos, (BlockState)state.cycle(STAGE), 4);
+                    } else {
+                        this.generator.generate(world, world.getChunkManager().getChunkGenerator(), pos, state,random);
                     }
+                    ci.cancel();
                 }
             }
         }
